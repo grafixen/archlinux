@@ -1,0 +1,293 @@
+1. wifi-menu
+2. timedatectl set-ntp true
+
+addendum:
+2.1 pacman -Syyy
+2.2 pacman -S reflector
+2.3 reflector -c Singapore -a 6 --sort rate --save /etc/pacman.d/mirrorlist
+2.4. pacman -Syyy
+
+MOUNTING
+3. lsblk
+4. cfdisk /dev/sda
+  => choose gpt
+  => /dev/sda1 : 512M
+  => /dev/sda2 : 30 to 60G
+  => /dev/sda3 : remaining space
+  => write
+5. lsblk
+6. mkfs.fat -F32 /dev/sda1
+7. mkfs.ext4 /dev/sda2
+8. mkfs.ext4 /dev/sda3
+9. mount /dev/sda2 /mnt
+10. mkdir /mnt/home
+11. mount /dev/sda3 /mnt/home
+
+INSTALL: BASIC PACKAGES
+12. pacstrap /mnt base base-devel linux linux-firmware net-tools neovim zsh
+
+FSTAB
+13. genfstab -U /mnt >> /mnt/etc/fstab
+14. cat /mnt/etc/fstab
+15. arch-chroot /mnt /bin/zsh
+
+SWAP
+15.1 fallocate -l 4GB /swapfile
+15.2 chmod 600 /swapfile
+15.3 mkswap /swapfile
+15.4 swapon /swapfile
+16.5 nvim /etc/fstab
+    => Enter : /swapfile  none  swap  defaults  0 0
+
+LOCALE
+16. nvim /etc/locale.gen
+    =>  jump to the line #en_US.UTF-8 UTF-8
+17.1 locale-gen
+17.2 echo "LANG=en_US.UTF-8" > /etc/locale.conf
+
+TIME ZONE
+18. ln -sf /usr/share/zoneinfo/Singapore /etc/localtime
+19. hwclock --systohc --utc
+
+HOST
+20. echo archman > /etc/hostname
+21. nvim /etc/hosts
+    => 127.0.1.1 localhost.localdomain archman
+
+ROOT PWD
+22. passwd
+
+INSTALL: UTILS & DRIVERS
+23 pacman -S grub efibootmgr  dialog os-prober linux-headers xdg-utils xdg-user-dirs
+OPTIONAL:
+  => Audio
+    $ pacman -S pulseaudio pulseaudio-alsa pamixer
+  => Bluetooth
+    $ pacman -S bluez bluez-utils
+    $ pacman -S bluez-hid2hci pulseaudio-bluetooth (for Mac 3,2)
+    $ systemctl enable bluetooth
+  => Network
+    $ pacman -S networkmanager network-manager-applet wireless_tools wpa_supplicant
+    $ systemctl enable NetworkManager
+  => Printer
+    $ pacman -S cups
+    $ systemctl enable org.cups.cupsd
+  => SSH
+    $ pacman -S openssh
+    $ systemctl enable sshd
+  => Utils
+    $ pacman -S git wget curl
+
+
+EFI BOOT
+24. mkdir /boot/efi
+    => mount /dev/sda1 /boot/efi
+    => lsblk # to check if everything is mounted correctly
+    => grub-install --target=x86_64-efi --bootloader-id=GRUB --efi-directory=/boot/efi --removable
+    => grub-mkconfig -o /boot/grub/grub.cfg
+
+ACTIVATE BACKGROUND APPLICATIONS
+25. 26. 27. => c.f #23
+
+ADD USER
+28. useradd -m -g users -G wheel -s /bin/zsh superman
+29. passwd superman
+30. EDITOR=nvim visudo
+    => # %wheel ALL=(ALL) ALL (Remove Comment)
+
+EXIT & REBOOT
+31. exit
+32. umount -a
+33. reboot
+
+ACTIVATE WIFI
+34. nmtui (choose non 5G network!!!)
+
+MABOOK AIR 3,2
+UPDATE BROADCOM DRIVER
+35. OPTIONAL: sudo pacman -S $(pacman -Qsq "^linux" | grep "^linux[0-9]*[-rt]*$" | awk '{print $1"-headers"}' ORS=' ')
+36. sudo pacman -S dkms
+37. sudo pacman -S broadcom-wl-dkms
+
+INSTALL X
+38. pacman -S  xorg xorg-xinit xorg-server
+
+DEEPIN
+$ sudo pacman -S deepin deepin-extra
+$ sudo vi /etc/lightdm/lightdm.conf
+  => greeter-session=lightdm-deepin-greeter
+$ sudo systemctl enable lightdm.service
+S sudo systemctl start lightdm.service
+
+# DEEPIN DESKTOP
+MANUAL CHANGE WALLPAPER
+$ cd /usr/share/backgrounds
+$ sudo ln -s path_to_wallpaper_in_usr_share_wallpapers_deepin default_background.jpg
+
+# DEEPIN GESTURES
+$ vi /usr/share/dde-daemon/gesture.json
+
+YAY
+$ git clone https://aur.archlinux.org/yay.git
+$ cd yay && makepkg -si PKGBUILD
+
+VMWARE
+1) Install OpenVMTools
+  sudo pacman -S open-vm-tools
+2) Install drivers and libraries
+  sudo pacman -Su xf86-input-vmmouse xf86-video-vmware mesa gtk2 gtkmm
+3) Create / Edit /etc/X11/Xwrapper.config
+  sudo echo needs_root_rights=yes >>/etc/X11/Xwrapper.config
+4) Enable and start vmtoolsd.service
+  sudo systemctl enable vmtoolsd
+  sudo systemctl start vmtoolsd
+  sudo systemctl enable vmware-vmblock-fuse
+  sudo systemctl start vmware-vmblock-fuse
+
+FONTS
+$ yay -S ttf-ms-fonts
+$ yay -S noto-fonts
+$ yay -S noto-fonts-cjk (Chinese, Japanese, Korean)
+
+DWM
+=> PACKAGE INSTALL
+$ yay -S ranger rxvt-unicode-pixbuf urxvt-perls firefox
+=> MANUAL INSTALL
+$ mkdir ~/windows && cd ~/windows
+
+# git clone git://git.suckless.org/dwm
+# git clone git://git.suckless.org/st or https://github.com/LukeSmithxyz/st.git (patched with features)
+# git clone git://git.suckless.org/dmenu
+# git clone git://git.suckless.org/surf
+
+$ sudo make clean install (for each directory dwm, st, dmenu)
+
+=> TOUCHPAD
+$ touch /etc/X11/xorg.conf.d/30-touchpad.conf
+  => Add the following
+  Section "InputClass"
+    Identifier "touchpad"
+    Driver "libinput"
+    MatchIsTouchpad "on"
+    Option "Tapping" "on"
+    Option "TappingButtonMap" "lrm"
+    Option "NaturalScrolling" "true"
+  EndSection
+
+=> XORG
+=> edit .xinitrc
+    xrandr --size 1680x1050
+
+    dwmblocks &
+    dwm
+
+=> START
+$ startx
+
+RANGER
+$ ranger --copy-config=all
+  => Use Ueberzug for image preview in ST and DWM
+      $ pip3 install ueberzug
+  => Edit rc.conf
+      set preview_images_method ueberzug
+
+!! NOTES MAC
+# MAC 3,2: Set resolution
+$ xrandr --size 1680x1050
+
+# MAC 3,2: Bluetooth
+# Notes:
+  => Checks Bluetooth: https://bbs.archlinux.org/viewtopic.php?id=244379
+      => $ bluetoothctl
+      => $ power on
+      => $ devices
+      => $ connect {device id}
+  => Bluetooth driver dependency: https://bbs.archlinux.org/viewtopic.php?id=242915
+      => $ yay -S bluez-hid2hci
+  => Nvidia Drivers: Use NOUVEAU
+      => $ yay -S xf86-video-nouveau
+
+# Packages to install
+  => mbpfan-git (AUR)
+    => Note: Macbook fan control
+    => Enable service after install: $ systemctl enable mbpfan.service
+  => pamixer c.f. "pulseaudion" => command line util for getting, setting and muting volume
+  => neomutt (command line mail)
+
+# Backlight (for NOUVEAU drivers for MacBook Air 3,2 NVIDIA 320m graphics card)
+  https://askubuntu.com/questions/1041051/xubuntu-18-04-make-fn-brightness-keys-work-with-sys-class-backlight-nv-backlig
+  => Works
+    => $ echo 20 | sudo tee /sys/class/backlight/nv_backlight/brightness
+  => Solution
+    1. create 2 scripts in ~/.local/bin
+    2. add ~/.local/bin to PATH like this PATH=${PATH}:$HOME/.local/bin
+
+    3. First Script: brightness
+        --------------------------------------------------------------------------------
+        #!/bin/sh
+
+        MAX_BRIGHTNESS=$(cat /sys/class/backlight/nv_backlight/max_brightness);
+
+        error_report() {
+          printf "error: the backlight brightness value $1 is out of range, use only [0,$MAX_BRIGHTNESS]\n";
+        }
+
+        if [ $1 -ge 0 ] &&  [ $1 -le $MAX_BRIGHTNESS ]; then
+          echo $1 > /sys/class/backlight/nv_backlight/brightness;
+        else
+          error_report;
+        fi;
+        --------------------------------------------------------------------------------
+    4. Second Script: backlight
+        --------------------------------------------------------------------------------
+        #!/bin/sh
+
+        STEP=10          # Step Up/Down brightnes by: 5 = ".05", 10 = ".10", etc.
+
+        CurrBright=$(cat /sys/class/backlight/nv_backlight/brightness)
+
+        [[ "$1" == "Up" || "$1" == "+" ]] && CurrBright=$(( CurrBright + STEP ))
+        [[ "$1" == "Down" || "$1" == "-" ]] && CurrBright=$(( CurrBright - STEP ))
+        [[ "$CurrBright" -lt 0 ]] && CurrBright=0    # Negative not allowed
+        [[ "$CurrBright" -gt 100  ]] && CurrBright=100      # Can't go over 9.99
+
+        sudo -A brightness "$CurrBright"   # Set new brightness
+
+        # Display current brightness
+        printf "Brightness: $CurrBright"
+        --------------------------------------------------------------------------------
+    5. Change files to executable
+        => $ chmod +x brightness
+        => $ chmod +x backlight
+
+  => Add to VISUDO
+    => $ sudo EDITOR=nvim visudo
+    => superman ALL = NOPASSWD, path/to/backlight
+
+  => EDIT DWM: config.h (Luke Smith version)
+      { 0, XF86XK_MonBrightnessUp,	spawn,		SHCMD("backlight Up") },
+	    { 0, XF86XK_MonBrightnessDown,	spawn,		SHCMD("backlight Down") },
+
+# Player Function Keys
+  => Install playerctl:
+      $ sudo pacman -S playerctl
+  => Edit ~/.local/src/dwm/config.h
+      { 0, XF86XK_AudioPrev,		spawn,		SHCMD("playerctl prev") },
+      { 0, XF86XK_AudioNext,		spawn,		SHCMD("playerctl next") },
+      { 0, XF86XK_AudioPause,		spawn,		SHCMD("playerctl play-pause") },
+      { 0, XF86XK_AudioPlay,		spawn,		SHCMD("playerctl play-pause") },
+      { 0, XF86XK_AudioStop,		spawn,		SHCMD("playerctl stop") },
+
+# Swap CAPSLOCK
+    => $ setxkbpmap -print -verbose 10 (this will get you the keyboard code pc104, pc105 etc)
+    => In /etc/X11/xorg.conf.d/00-keyboard.conf
+        Section "InputClass"
+          Identifier      "system-keyboard"
+          MatchIsKeyboard     "on"
+          Option          "XkbLayout" "us"
+          Option          "XkbModel"  "pc105"
+          Option          "XkbOptions" "caps:swapescape"
+        EndSection
+
+
+
